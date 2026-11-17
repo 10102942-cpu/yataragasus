@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YATARA // Arena de energía</title>
+<style>
+:root{color-scheme:dark;--cyan:#55f5ff;--pink:#ff4fc8;--lime:#b8ff65}
+*{box-sizing:border-box}body{margin:0;background:#070b18;color:#eafaff;font:15px system-ui,Segoe UI,sans-serif;min-height:100vh;background-image:radial-gradient(ellipse at 50% 0%,#17284c 0%,transparent 55%)}
+header{padding:22px 5vw 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:clamp(22px,4vw,36px);margin:0;letter-spacing:3px}h1 span{color:var(--cyan)}.tag{color:#91a9c9;font-size:12px;letter-spacing:2px}
+main{width:min(1100px,94vw);margin:12px auto 40px}.panel{border:1px solid #294363;background:#0b1427dd;border-radius:18px;box-shadow:0 15px 60px #0008;padding:16px}
+.top{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.stats{display:flex;gap:9px;flex-wrap:wrap}.stat{background:#111f38;border:1px solid #294363;border-radius:10px;padding:9px 13px;min-width:90px}.stat small{display:block;color:#8ba7c9;font-size:10px;letter-spacing:1px}.stat b{font-size:20px}
+button,select{background:#132743;color:#eafaff;border:1px solid #3b638a;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer}button:hover{border-color:var(--cyan);box-shadow:0 0 15px #55f5ff33}button.primary{background:#0b5263;border-color:var(--cyan)}button:disabled{opacity:.4;cursor:not-allowed}
+#arena{display:block;width:100%;height:min(58vh,520px);min-height:300px;background:radial-gradient(ellipse at center,#17294a,#080e1d 75%);border:1px solid #294363;border-radius:14px;cursor:crosshair;touch-action:manipulation}
+.controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:13px}.choices{display:flex;gap:8px;flex-wrap:wrap}.choice.active{border-color:var(--lime);color:var(--lime);box-shadow:0 0 14px #b8ff6533}
+.help{color:#9ab0cf;font-size:13px;line-height:1.5;margin:12px 2px 0}.message{color:var(--cyan);font-weight:600;min-height:22px;margin-top:10px}
+@media(max-width:600px){header{padding-top:16px}.stat{min-width:70px;padding:7px 9px}#arena{min-height:330px}}
+</style>
+</head>
+<body>
+<header><div><div class="tag">PROYECTO ARCADE // 01</div><h1>YATARA <span>ENERGY ARENA</span></h1></div><div class="tag">SIMULACIÓN FICTICIA · SIN ARMAS REALES</div></header>
+<main><section class="panel">
+<div class="top"><div class="stats">
+<div class="stat"><small>PUNTOS</small><b id="score">0</b></div>
+<div class="stat"><small>TIEMPO</small><b id="time">45</b></div>
+<div class="stat"><small>RÉCORD</small><b id="best">0</b></div>
+<div class="stat"><small>ACERTADOS</small><b id="hits">0</b></div>
+</div><button id="start" class="primary">▶ INICIAR</button></div>
+<canvas id="arena" aria-label="Zona de juego: toca los objetivos geométricos"></canvas>
+<div class="controls"><div class="choices" aria-label="Tipo de pulso">
+<button class="choice active" data-type="cyan">◈ PULSO AZUL</button><button class="choice" data-type="pink">✧ PULSO NEÓN</button><button class="choice" data-type="lime">⬡ PULSO VERDE</button>
+</div><button id="reset">↻ REINICIAR</button></div>
+<div class="message" id="message">Pulsa INICIAR y toca los objetivos geométricos para sumar puntos.</div>
+<p class="help">Cómo jugar: haz clic o toca los polígonos luminosos. Cada objetivo vale puntos; los objetivos pequeños dan más. Es un minijuego de reflejos con efectos de energía totalmente ficticios.</p>
+</section></main>
+<script>
+(()=>{
+const canvas=document.getElementById('arena'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+let w=0,h=0,targets=[],particles=[],score=0,hits=0,time=45,running=false,kind='cyan',last=0,raf=0,spawn=0;
+const colors={cyan:'#55f5ff',pink:'#ff4fc8',lime:'#b8ff65'};
+let best=Number(localStorage.getItem('yatraBest')||0);$('best').textContent=best;
+function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);w=r.width;h=r.height;canvas.width=Math.round(w*d);canvas.height=Math.round(h*d);ctx.setTransform(d,0,0,d,0,0)}addEventListener('resize',resize);resize();
+function target(){const radius=13+Math.random()*17;targets.push({x:radius+Math.random()*(w-radius*2),y:radius+Math.random()*(h-radius*2),r:radius,phase:Math.random()*6.28,life:5+Math.random()*3,kind:Math.floor(Math.random()*3)})}
+function burst(x,y,color){for(let i=0;i<12;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:24,color})}}
+function draw(t){ctx.clearRect(0,0,w,h);ctx.save();ctx.strokeStyle='#183252';ctx.lineWidth=1;for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}ctx.restore();
+targets.forEach(o=>{o.phase+=.025;const pulse=1+Math.sin(o.phase)*.09;ctx.save();ctx.translate(o.x,o.y);ctx.scale(pulse,pulse);const c=[colors.cyan,colors.pink,colors.lime][o.kind];ctx.shadowBlur=18;ctx.shadowColor=c;ctx.strokeStyle=c;ctx.lineWidth=2.5;ctx.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/2,x=Math.cos(a)*o.r,y=Math.sin(a)*o.r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.stroke();ctx.globalAlpha=.25;ctx.fillStyle=c;ctx.fill();ctx.globalAlpha=1;ctx.beginPath();ctx.arc(0,0,o.r*.28,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();ctx.restore()});
+particles=particles.filter(p=>p.life-->0);particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;ctx.globalAlpha=p.life/24;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,3,3)});ctx.globalAlpha=1;
+if(running){const dt=Math.min((t-last)/1000,.1);last=t;spawn+=dt;if(spawn>0.8&&targets.length<9){target();spawn=0}targets.forEach(o=>o.life-=dt);targets=targets.filter(o=>o.life>0);raf=requestAnimationFrame(draw)}else raf=0}
+function update(){ $('score').textContent=score;$('hits').textContent=hits;$('time').textContent=time}
+function finish(){running=false;cancelAnimationFrame(raf);$('start').disabled=false;$('start').textContent='▶ JUGAR OTRA VEZ';if(score>best){best=score;localStorage.setItem('yatraBest',best);$('best').textContent=best}$('message').textContent='¡Ronda terminada! Puntuación: '+score+'. Pulsa jugar otra vez.';draw(performance.now())}
+function start(){if(running)return;targets=[];particles=[];score=0;hits=0;time=45;spawn=0;update();running=true;$('start').disabled=true;$('message').textContent='¡A por los objetivos!';last=performance.now();raf=requestAnimationFrame(draw);const tick=()=>{if(!running)return;time--;update();if(time<=0){finish();return}setTimeout(tick,1000)};setTimeout(tick,1000)}
+canvas.addEventListener('pointerdown',e=>{if(!running)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;for(let i=targets.length-1;i>=0;i--){const o=targets[i];if(Math.hypot(x-o.x,y-o.y)<o.r+5){const pts=Math.max(5,Math.round(30-o.r));score+=pts;hits++;burst(o.x,o.y,colors[kind]);targets.splice(i,1);update();$('message').textContent='+'+pts+' puntos · ¡Buen reflejo!';return}}burst(x,y,colors[kind])});
+$('start').addEventListener('click',start);$('reset').addEventListener('click',()=>{running=false;cancelAnimationFrame(raf);targets=[];particles=[];score=0;hits=0;time=45;update();draw(performance.now());$('start').disabled=false;$('start').textContent='▶ INICIAR';$('message').textContent='Ronda reiniciada. Cuando quieras, inicia de nuevo.'});
+document.querySelectorAll('.choice').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');kind=b.dataset.type}));
+draw(0);
+})();
+</script></body></html>
